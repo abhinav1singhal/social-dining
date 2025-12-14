@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
@@ -78,7 +79,24 @@ def get_session(session_id: str):
     
     # Fetch recommendations (if any)
     recommendations_res = supabase.table("recommendations").select("*").eq("session_id", session_id).execute()
-    recommendations = recommendations_res.data if recommendations_res.data else []
+    recommendations_data = recommendations_res.data if recommendations_res.data else []
+    
+    # Fetch votes
+    votes_res = supabase.table("votes").select("*").eq("session_id", session_id).execute()
+    votes = votes_res.data if votes_res.data else []
+    
+    # Aggregate votes per recommendation
+    recommendations = []
+    for rec in recommendations_data:
+        rec_id = rec["business_id"] # Matches venue_id in votes
+        rec_votes = [v for v in votes if v["venue_id"] == rec_id]
+        
+        score = sum(v["score"] for v in rec_votes)
+        vote_count = len(rec_votes)
+        
+        rec["score"] = score
+        rec["vote_count"] = vote_count
+        recommendations.append(rec)
     
     return {
         "session": session_data,
@@ -151,10 +169,27 @@ def generate_recommendations(session_id: str, background_tasks: BackgroundTasks)
     prompt += f"Preferences: {', '.join(cuisines)}. "
     prompt += f"Dietary Constraints: {', '.join(dietary)}. "
     prompt += f"Vibe: {', '.join(vibes)}. "
+    prompt += (
+        "IMPORTANT: For each restaurant, include a summary starting with 'Why Picked:' explaining why it fits the group "
+        "and 'Trade-offs:' listing any downsides (e.g. distance, price). "
+        "Limit to the top 3 best options."
+    )
     
     # Call AI Service
     try:
+        # Parallelize? For now sequential.
+        
+        # 1. Analyze Conflicts
+        conflict_analysis = ai_service.analyze_conflicts(participants)
+        
+        # Update session with conflict analysis
+        supabase.table("sessions").update({"conflict_analysis": conflict_analysis}).eq("id", session_id).execute()
+        
+        # 2. Get Recommendations
         recommendations = ai_service.generate_recommendations_with_retry(session_id, prompt)
+        
+        # Limit to top 3 (Curated Picks)
+        recommendations = recommendations[:3]
         
         # Store in DB
         for rec in recommendations:
@@ -163,6 +198,13 @@ def generate_recommendations(session_id: str, background_tasks: BackgroundTasks)
             # Remove id if None - let DB auto-generate UUID
             if rec_data.get("id") is None:
                 del rec_data["id"]
+            
+            # Remove computed fields (not in DB table)
+            if "score" in rec_data: del rec_data["score"]
+            if "vote_count" in rec_data: del rec_data["vote_count"]
+            
+            # keep why_picked and trade_offs as they are now in DB
+            
             supabase.table("recommendations").insert(rec_data).execute()
             
         return {"status": "completed", "message": "Recommendations generated"}
@@ -194,4 +236,44 @@ def cast_vote(session_id: str, vote: VoteCreate):
     supabase.table("votes").insert(new_vote).execute()
     
     return {"status": "voted", "message": "Vote recorded"}
+
+class BookRequest(BaseModel):
+    business_id: str
+
+@app.post("/sessions/{session_id}/book")
+def book_session(session_id: str, request: BookRequest):
+    # Fetch session for details
+    session_res = supabase.table("sessions").select("*").eq("id", session_id).execute()
+    if not session_res.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session = session_res.data[0]
+    
+    # Fetch participants for count
+    participants_res = supabase.table("participants").select("*").eq("session_id", session_id).execute()
+    count = len(participants_res.data) if participants_res.data else 2
+    
+    # Fetch restaurant name
+    rec_res = supabase.table("recommendations").select("name").eq("session_id", session_id).eq("business_id", request.business_id).execute()
+    if not rec_res.data:
+        raise HTTPException(status_code=404, detail="Restaurant not found in recommendations")
+    business_name = rec_res.data[0]["name"]
+    
+    # Call AI Agent
+    result = ai_service.book_reservation(
+        session_id=session_id,
+        business_name=business_name,
+        scheduled_time=session.get("scheduled_time") or "7:00 PM",
+        people_count=count
+    )
+    
+    # Update Session with booking status
+    update_data = {
+        "booking_status": result["status"],
+        "booking_reference": result.get("reference"),
+        "booking_message": result.get("message")
+    }
+    
+    supabase.table("sessions").update(update_data).eq("id", session_id).execute()
+    
+    return result
 

@@ -67,16 +67,59 @@ class YelpAIMapper:
         return recommendations
     
     @staticmethod
+    def parse_conflict_response(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Parse the conflict analysis response.
+        Attempts to find a JSON object in the response text.
+        """
+        import json
+        import re
+
+        # Try to find text content
+        content = ""
+        # Check various possible keys for chat response
+        if "message" in data:
+            content = data["message"]
+        elif "text" in data:
+            content = data["text"]
+        elif "answer" in data:
+            content = data["answer"]
+        elif "reply" in data:
+            content = data["reply"]
+        
+        # Fallback: Check if it returned a business list but put the text in a summary? Unlikely for this query.
+        
+        if not content:
+            # If no content found, print keys for debugging
+            print(f"⚠️ Could not find content in conflict response. Keys: {list(data.keys())}")
+            return {"has_conflicts": False, "conflicts": [], "resolution": "Could not parse analysis."}
+
+        # Clean markdown code blocks if present
+        content = re.sub(r'```json\s*', '', content)
+        content = re.sub(r'```\s*', '', content)
+        content = content.strip()
+
+        try:
+            # Try parsing JSON
+            result = json.loads(content)
+            # Ensure keys exist
+            return {
+                "has_conflicts": result.get("has_conflicts", False),
+                "conflicts": result.get("conflicts", []),
+                "resolution": result.get("resolution", "")
+            }
+        except json.JSONDecodeError:
+            print(f"⚠️ Failed to parse JSON from conflict content: {content[:100]}...")
+            return {"has_conflicts": False, "conflicts": [], "resolution": "Analysis format error."}
+
+    @staticmethod
     def _map_business_to_recommendation(biz: Dict[str, Any]) -> Recommendation:
         """
         Map a single business object to a Recommendation.
-        
-        Args:
-            biz: Business object from Yelp AI API
-            
-        Returns:
-            Recommendation object
+        Extracts structured data from AI summaries if present.
         """
+        import re
+        
         # Extract categories
         categories = []
         for cat in biz.get("categories", []):
@@ -85,12 +128,37 @@ class YelpAIMapper:
         
         # Get AI reasoning from summaries (with fallback chain)
         summaries = biz.get("summaries", {})
-        ai_reasoning = (
+        full_summary = (
             summaries.get("short") or 
             summaries.get("medium") or 
             "Recommended based on your preferences."
         )
         
+        # Extract Why Picked and Trade-offs from summary if formatted
+        # Format expected: "Why Picked: ... Trade-offs: ..."
+        why_picked = "Great choice for the group."
+        trade_offs = []
+        
+        # Regex to find "Why Picked:"
+        why_match = re.search(r'Why Picked:\s*(.*?)(?:Trade-offs:|$)', full_summary, re.IGNORECASE | re.DOTALL)
+        if why_match:
+            why_picked = why_match.group(1).strip()
+            
+        # Regex to find "Trade-offs:"
+        trade_match = re.search(r'Trade-offs:\s*(.*)', full_summary, re.IGNORECASE | re.DOTALL)
+        if trade_match:
+            trade_text = trade_match.group(1).strip()
+            # Split by comma or bullet points
+            trade_offs = [t.strip(' -•') for t in re.split(r'[,;]|\n', trade_text) if t.strip()]
+            
+        # Clean the summary for display (remove the structured parts)
+        display_reasoning = full_summary
+        if why_match:
+            # If we extracted data, maybe we want to keep the reasoning short or clean it?
+            # actually let's just keep the full summary as 'ai_reasoning' for now, 
+            # and use the extracted fields for specific UI elements.
+            pass
+
         # Get image URL from contextual_info photos
         image_url = None
         contextual_info = biz.get("contextual_info", {})
@@ -108,6 +176,8 @@ class YelpAIMapper:
             rating=float(biz.get("rating", 0.0)),
             price=price,
             image_url=image_url,
-            ai_reasoning=ai_reasoning,
-            categories=categories
+            ai_reasoning=display_reasoning,
+            categories=categories,
+            why_picked=why_picked,
+            trade_offs=trade_offs
         )

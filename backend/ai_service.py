@@ -58,6 +58,71 @@ class AIService:
         
         return recommendations
 
+    def analyze_conflicts(self, participants: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Analyzes conflicts in participant preferences.
+        """
+        if not self.api_key:
+            return {"has_conflicts": False, "conflicts": [], "resolution": "No API Key"}
+
+        prefs = []
+        for p in participants:
+            details = []
+            if p.get('dietary_restrictions'): details.append(f"Diet: {p['dietary_restrictions']}")
+            if p.get('cuisine_preferences'): details.append(f"Cuisine: {p['cuisine_preferences']}")
+            if details:
+                prefs.append(f"{p['name']} ({', '.join(details)})")
+        
+        if not prefs:
+            return {"has_conflicts": False, "conflicts": [], "resolution": "No specific preferences provided."}
+
+        prompt = (
+            f"Analyze these dining preferences for a group: {'; '.join(prefs)}. "
+            "Identify any major conflicts (e.g. Vegan vs Steakhouse, Budget mismatch). "
+            "Return a raw JSON object (no markdown) with keys: "
+            "'has_conflicts' (bool), 'conflicts' (list of strings), 'resolution' (string suggestion). "
+            "If no conflicts, set has_conflicts to false."
+        )
+
+        try:
+            payload = {"query": prompt}
+            response = requests.post(self.endpoint, json=payload, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Use mapper to parse conflict response
+            return YelpAIMapper.parse_conflict_response(data)
+        except Exception as e:
+            print(f"⚠️ Conflict analysis failed: {e}")
+            return {"has_conflicts": False, "conflicts": [], "resolution": "Analysis failed"}
+
+    def book_reservation(self, session_id: str, business_name: str, scheduled_time: str, people_count: int) -> Dict[str, Any]:
+        """
+        Simulates an AI agent communicating with Yelp/Restaurant to book a table.
+        Retuns a status dict.
+        """
+        import time as t
+        import random
+        from uuid import uuid4
+        
+        # Simulate "Agentic Work" (network calls, negotiation)
+        t.sleep(3) 
+        
+        # Random failure/busy scenario (30% chance)
+        if random.random() < 0.3:
+            return {
+                "status": "busy",
+                "message": f"I called {business_name}, but they are fully booked at {scheduled_time}. Recommend calling them directly."
+            }
+            
+        # Success scenario
+        ref = f"YELP-{uuid4().hex[:4].upper()}"
+        return {
+            "status": "booked",
+            "reference": ref,
+            "message": f"Confirmed! Table for {people_count} at {business_name} referenced under #{ref}."
+        }
+        
     def generate_recommendations_with_retry(self, session_id: str, prompt: str) -> List[Recommendation]:
         """
         Retries up to 3 times before falling back.

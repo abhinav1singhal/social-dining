@@ -23,3 +23,13 @@ export const generateRecommendations = async (sessionId: string) => {
     const response = await api.post(`/sessions/${sessionId}/generate`);
     return response.data;
 };
+
+export const castVote = async (sessionId: string, data: { participant_id: string; venue_id: string; score: number }) => {
+    const response = await api.post(`/sessions/${sessionId}/vote`, data);
+    return response.data;
+};
+
+export const bookReservation = async (sessionId: string, businessId: string) => {
+    const response = await api.post(`/sessions/${sessionId}/book`, { business_id: businessId });
+    return response.data;
+};

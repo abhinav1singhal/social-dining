@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from '@/hooks/useSession';
-import { joinSession, generateRecommendations } from '@/lib/api';
+import { joinSession, generateRecommendations, castVote } from '@/lib/api';
+import { mutate } from 'swr';
 import { Users, Utensils, Play, Loader2 } from 'lucide-react';
 
 export default function SessionPage() {
@@ -47,6 +48,21 @@ export default function SessionPage() {
             await generateRecommendations(sessionId);
         } catch (error) {
             console.error("Failed to start", error);
+        }
+    };
+
+    const handleVote = async (businessId: string, score: number) => {
+        if (!participantId) return;
+        try {
+            await castVote(sessionId, {
+                participant_id: participantId,
+                venue_id: businessId,
+                score,
+            });
+            // Trigger refresh
+            mutate(sessionId ? `/sessions/${sessionId}` : null);
+        } catch (error) {
+            console.error("Failed to vote", error);
         }
     };
 
@@ -112,45 +128,165 @@ export default function SessionPage() {
 
     // State 3: Voting / Results
     if (recommendations && recommendations.length > 0) {
+        const sortedRecommendations = [...recommendations].sort((a: any, b: any) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.vote_count - a.vote_count;
+        });
+
+        const isHost = participants.find((p: any) => p.id === participantId)?.is_host;
+
+        const handleBook = async (businessId: string) => {
+            if (!confirm("Have AI Agent call restaurant to book a table?")) return;
+            try {
+                // Optimistic update or just trigger loading?
+                // For simplicity, trigger, then wait for revalidation. 
+                // However, since we poll with SWR, we can just Mutate immediately to show loading if we had local state,
+                // but session.booking_status comes from server.
+                // We'll trust the fast response or optimistic UI.
+                await import('@/lib/api').then(m => m.bookReservation(sessionId, businessId));
+                mutate(sessionId ? `/sessions/${sessionId}` : null);
+            } catch (e) {
+                alert("Booking failed");
+            }
+        };
+
         return (
             <div className="min-h-screen bg-orange-50 p-4">
                 <div className="max-w-md mx-auto">
                     <h1 className="text-2xl font-bold text-center mb-6">Vote for your favorite!</h1>
 
-                    <div className="space-y-4">
-                        {recommendations.map((rec: any) => (
-                            <div key={rec.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
-                                {rec.image_url && (
-                                    <img src={rec.image_url} alt={rec.name} className="w-full h-48 object-cover" />
-                                )}
-                                <div className="p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h2 className="text-xl font-bold">{rec.name}</h2>
-                                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-bold">
-                                            {rec.rating} ★
-                                        </span>
-                                    </div>
-                                    <p className="text-gray-500 text-sm mb-3">
-                                        {rec.price} • {rec.categories.join(', ')}
-                                    </p>
-
-                                    <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                                        <p className="text-sm text-blue-800 italic">
-                                            " {rec.ai_reasoning} "
-                                        </p>
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded-lg font-medium transition-colors">
-                                            Nah
-                                        </button>
-                                        <button className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium transition-colors">
-                                            Love it!
-                                        </button>
-                                    </div>
-                                </div>
+                    {session.conflict_analysis?.has_conflicts && (
+                        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6 rounded-r-lg shadow-sm">
+                            <h3 className="font-bold text-amber-800 flex items-center">
+                                ⚠️ Preference Conflicts Detected
+                            </h3>
+                            <div className="mt-2 text-sm text-amber-800">
+                                <ul className="list-disc list-inside mb-2">
+                                    {session.conflict_analysis.conflicts.map((c: string, i: number) => (
+                                        <li key={i}>{c}</li>
+                                    ))}
+                                </ul>
+                                <p className="font-medium italic">
+                                    Suggestion: {session.conflict_analysis.resolution}
+                                </p>
                             </div>
-                        ))}
+                        </div>
+                    )}
+
+                    <div className="space-y-4">
+                        <div className="space-y-4">
+                            {sortedRecommendations.map((rec: any, index: number) => {
+                                const isWinner = index === 0;
+                                return (
+                                    <div
+                                        key={rec.id}
+                                        className={`bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 ${isWinner ? 'border-2 border-yellow-400 ring-4 ring-yellow-400/20 scale-[1.02]' : ''}`}
+                                    >
+                                        {rec.image_url && (
+                                            <div className="relative h-48">
+                                                <img src={rec.image_url} alt={rec.name} className="w-full h-full object-cover" />
+                                                <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded-full font-bold backdrop-blur-sm">
+                                                    #{index + 1}
+                                                </div>
+                                                {isWinner && (
+                                                    <div className="absolute top-4 right-4 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full font-bold shadow-lg flex items-center gap-1 animate-bounce">
+                                                        🏆 Current Leader
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        <div className="p-4">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h2 className="text-xl font-bold">{rec.name}</h2>
+                                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-bold">
+                                                    {rec.rating} ★
+                                                </span>
+                                            </div>
+                                            <p className="text-gray-500 text-sm mb-3">
+                                                {rec.price} • {rec.categories.join(', ')}
+                                            </p>
+
+                                            <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                                                <p className="text-sm text-blue-800 italic mb-2">
+                                                    " {rec.ai_reasoning} "
+                                                </p>
+
+                                                {rec.why_picked && (
+                                                    <div className="mt-2 text-sm text-blue-900 border-t border-blue-100 pt-2">
+                                                        <strong>Why this works:</strong> {rec.why_picked}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {rec.trade_offs && rec.trade_offs.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mb-4">
+                                                    {rec.trade_offs.map((tradeoff: string, i: number) => (
+                                                        <span key={i} className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium border border-gray-200">
+                                                            ⚖️ {tradeoff}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Booking UI - Only for Winner */}
+                                            {isWinner && (
+                                                <div className="mb-4">
+                                                    {session.booking_status === 'booked' ? (
+                                                        <div className="bg-green-100 text-green-800 p-3 rounded-lg border border-green-200">
+                                                            <div className="font-bold flex items-center">✅ Reservation Confirmed</div>
+                                                            <div className="text-sm mt-1">Ref: {session.booking_reference}</div>
+                                                            <div className="text-xs mt-1 italic">"{session.booking_message}"</div>
+                                                        </div>
+                                                    ) : session.booking_status === 'busy' ? (
+                                                        <div className="bg-red-50 text-red-800 p-3 rounded-lg border border-red-200">
+                                                            <div className="font-bold">❌ Availability Issue</div>
+                                                            <div className="text-sm mt-1 italic">"{session.booking_message}"</div>
+                                                            {isHost && (
+                                                                <button
+                                                                    onClick={() => handleBook(rec.business_id)}
+                                                                    className="mt-2 text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded"
+                                                                >
+                                                                    Retry AI Agent
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        isHost && (
+                                                            <button
+                                                                onClick={() => handleBook(rec.business_id)}
+                                                                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-bold shadow-md hover:shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2"
+                                                            >
+                                                                ✨ Have AI Book This Table
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleVote(rec.business_id, -1)}
+                                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded-lg font-medium transition-colors"
+                                                >
+                                                    Nah ({rec.vote_count > 0 ? (rec.vote_count - rec.score) / 2 : 0})
+                                                </button>
+                                                <button
+                                                    onClick={() => handleVote(rec.business_id, 1)}
+                                                    className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    Love it!
+                                                    {rec.score > 0 && (
+                                                        <span className="bg-white/20 px-2 py-0.5 rounded text-sm">
+                                                            {Math.max(0, (rec.score + rec.vote_count) / 2)}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             </div>
