@@ -19,6 +19,55 @@ Social Dining is a collaborative social dining app that helps groups decide wher
 
 ---
 
+## 🏗️ Architecture Flow
+
+The following sequence diagram illustrates how **Social Dining** orchestrates the user journey from session creation to AI-driven booking.
+
+```mermaid
+sequenceDiagram
+    participant Host as 👤 Host
+    participant Guest as 👥 Guest
+    participant FE as 🖥️ Frontend
+    participant BE as ⚙️ Backend
+    participant DB as 🗄️ Database
+    participant AI as 🧠 Yelp AI Agent
+
+    Note over Host, DB: 1. Session Setup
+    Host->>FE: Create Session (Loc, Time)
+    FE->>BE: POST /sessions
+    BE->>DB: Insert Session
+    BE-->>FE: Session ID & Invite Link
+    FE-->>Host: Display Lobby & Link
+
+    Note over Guest, DB: 2. Collaboration
+    Guest->>FE: Join via Link
+    FE->>BE: POST /join (Prefs: Veg, Thai)
+    BE->>DB: Store Participant Prefs
+    FE-->>Host: Live Update (SWR Polling)
+
+    Note over Host, AI: 3. AI Recommendations
+    Host->>FE: Click "Generate Options"
+    FE->>BE: POST /generate
+    BE->>DB: Fetch All Prefs
+    BE->>AI: Analyze Conflicts (Veg vs Meat?)
+    AI-->>BE: Conflict Resolution Strategy
+    BE->>AI: Query Restaurants (with Constraints)
+    AI-->>BE: Top 3 Curated Picks
+    BE->>DB: Save Recommendations
+    BE-->>FE: Return Results
+
+    Note over Host, DB: 4. Voting & Booking
+    Host->>FE: Vote & Select Winner
+    Host->>FE: Click "Have AI Book Table"
+    FE->>BE: POST /book
+    BE->>AI: Agent Negotiation (Simulation)
+    AI-->>BE: Confirmed / Busy
+    BE->>DB: Update Booking Status
+    BE-->>FE: Show Success/Fail UI
+```
+
+---
+
 ## 🚀 Tech Stack
 
 | Layer | Technology |
