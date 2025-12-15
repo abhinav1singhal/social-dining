@@ -39,7 +39,7 @@ export default function Home() {
               <Utensils className="w-8 h-8 text-orange-500" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold mb-2">YelpTogether</h1>
+          <h1 className="text-3xl font-bold mb-2">Social Dining</h1>
           <p className="text-orange-100">Stop arguing, start eating.</p>
         </div>
 

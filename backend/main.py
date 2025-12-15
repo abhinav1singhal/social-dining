@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-app = FastAPI(title="YelpTogether API")
+app = FastAPI(title="Social Dining API")
 ai_service = AIService()
 
 # CORS Configuration

@@ -1,7 +1,7 @@
-# System Design: YelpTogether (AI-Enhanced) 🤖🍽️
+# System Design: Social Dining (AI-Enhanced) 🤖🍽️
 
 ## 1. Executive Summary
-**YelpTogether** is an AI-powered social dining app that solves the "where should we eat?" coordination problem. It goes beyond simple search by acting as an **intelligent mediator**:
+**Social Dining** is an AI-powered social dining app that solves the "where should we eat?" coordination problem. It goes beyond simple search by acting as an **intelligent mediator**:
 1.  **Conflict Resolver**: Analyzes group preferences to detect clashes (e.g., "Steakhouse" host vs "Vegan" guest) and suggests compromises.
 2.  **Curated Recommendations**: Uses Yelp AI to pick the top 3 spots with "Why Picked" reasoning.
 3.  **Reservation Agent**: Simulates an AI agent calling the restaurant to book a table for the winner.

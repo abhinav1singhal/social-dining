@@ -1,7 +1,7 @@
-# Requirements Document — Social Dining Group Planner (“YelpTogether”)
+# Requirements Document — Social Dining Group Planner
 
 ## 1. Document Control
-**Project Name:** YelpTogether (AI-Enhanced)  
+**Project Name:** Social Dining (AI-Enhanced)  
 **Version:** 2.0 (Post-Implementation)  
 **Hackathon:** Yelp AI API Hackathon  
 **Primary Data Source:** Yelp AI API  
@@ -9,7 +9,7 @@
 ## 2. Overview
 
 ### 2.1 Purpose
-YelpTogether helps groups agree on a dining location by acting as an **intelligent mediator**. It aggregates individual preferences, detects conflicts, and uses Yelp AI to recommend compromise options, finally handling the reservation process via an AI agent.
+Social Dining helps groups agree on a dining location by acting as an **intelligent mediator**. It aggregates individual preferences, detects conflicts, and uses Yelp AI to recommend compromise options, finally handling the reservation process via an AI agent.
 
 ### 2.2 Solution Summary
 - **Session-Based Planning**: Share a link to invite friends.

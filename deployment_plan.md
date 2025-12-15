@@ -1,6 +1,6 @@
 # Google Cloud Deployment Plan 🚀☁️
 
-This guide outlines the steps to deploy your **YelpTogether** app to **Google Cloud Run** using PowerShell.
+This guide outlines the steps to deploy your **Social Dining** app to **Google Cloud Run** using PowerShell.
 
 ## Prerequisites
 1.  **Google Cloud SDK** installed and initialized (`gcloud init`).

@@ -1,8 +1,10 @@
-# 🍽️ YelpTogether
+# 🍽️ Social Dining
+
+![Status](https://img.shields.io/badge/Status-Hackathon_Ready-success)
 
 **Stop arguing, start eating.**
 
-YelpTogether is a collaborative social dining app that helps groups decide where to eat using AI-powered recommendations from the Yelp AI API. Create a session, invite friends, set preferences, and let AI find the perfect restaurant for everyone!
+Social Dining is a collaborative social dining app that helps groups decide where to eat using AI-powered recommendations from the Yelp AI API. Create a session, invite friends, set preferences, and let AI find the perfect restaurant for everyone!
 
 ---
 
