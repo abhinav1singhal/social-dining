@@ -15,16 +15,16 @@ The system uses a **Client-Server** model enhanced with an **AI Agent Layer**.
 
 ```mermaid
 graph TD
-    User[User / Browser] -->|HTTPS| Frontend[Frontend (Next.js)]
-    Frontend -->|REST API| Backend[Backend (FastAPI)]
-    
-    subgraph "AI Agent Layer"
+    User[User / Browser] -->|HTTPS| Frontend[Frontend - Next.js]
+    Frontend -->|REST API| Backend[Backend - FastAPI]
+
+    subgraph AI_Agent_Layer[AI Agent Layer]
         Backend -->|Prompt Engineering| AI_Service[AI Service Class]
         AI_Service -->|HTTP| YelpAI[Yelp AI API]
         AI_Service -->|Simulation| MockBooking[Booking Agent]
     end
 
-    subgraph "Data Persistence"
+    subgraph Data_Persistence[Data Persistence]
         Backend -->|SQL| DB[(Supabase PostgreSQL)]
     end
 ```
