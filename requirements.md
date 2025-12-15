@@ -1,209 +1,96 @@
 # Requirements Document — Social Dining Group Planner (“YelpTogether”)
 
 ## 1. Document Control
-**Project Name:** YelpTogether (Working Title)  
-**Version:** 1.0  
-**Last Updated:** November 2025  
-**Prepared By:** [Your Name]  
-**Hackathon:** *Yelp AI API Hackathon*  
+**Project Name:** YelpTogether (AI-Enhanced)  
+**Version:** 2.0 (Post-Implementation)  
+**Hackathon:** Yelp AI API Hackathon  
 **Primary Data Source:** Yelp AI API  
-**Project Type:** Web Application (Frontend + Backend)
 
 ## 2. Overview
 
 ### 2.1 Purpose
-YelpTogether helps groups agree on a dining location by collecting individual preferences and using the Yelp AI API to recommend the best compromise restaurants.
+YelpTogether helps groups agree on a dining location by acting as an **intelligent mediator**. It aggregates individual preferences, detects conflicts, and uses Yelp AI to recommend compromise options, finally handling the reservation process via an AI agent.
 
-### 2.2 Problem Statement
-Group dining decisions are difficult due to varying tastes, budgets, dietary needs, and indecision.
-
-### 2.3 Solution Summary
-- Shared planning session  
-- Preference collection  
-- AI-generated group recommendations  
-- Voting system  
-- Multi-turn refinement via Yelp AI API  
+### 2.2 Solution Summary
+- **Session-Based Planning**: Share a link to invite friends.
+- **AI Conflict Resolution**: Automatically detects incompatibilities (e.g., "Meat Eaters vs Vegans") and suggests a strategy.
+- **Curated Recommendations**: Uses Yelp AI to pick the top 3 spots with reasoning.
+- **AI Reservation Agent**: Simulates calling the restaurant to book the table.
 
 ---
 
-## 3. Scope
+## 3. Functional Requirements
 
-### 3.1 In-Scope (MVP)
-- Session creation  
-- Preference submissions  
-- Yelp AI-powered recommendations  
-- Voting  
-- Final venue selection  
+### FR-1: Session Creation (Host)
+- Host inputs Name, Location, and **Date/Time**.
+- System generates a unique invite link.
+- **UI**: Clear inputs with visibility-enhanced text.
 
-### 3.2 Out-of-Scope
-- Other POI/location APIs  
-- Paid reservations  
-- Login systems  
-- Mobile native apps  
+### FR-2: Participant Onboarding
+- Join via URL (no login required for guests).
+- Submit preferences:
+    - **Dietary**: (e.g., Vegan, Gluten-Free)
+    - **Cuisines**: (e.g., Thai, Italian)
+    - **Vibe**: (e.g., Quiet, Rooftop)
 
----
+### FR-3: AI Recommendation Engine
+1.  **Conflict Analysis**: Before searching, the AI analyzes the group profile for clashes.
+2.  **Smart Query**: Generates a natural language prompt for Yelp AI.
+3.  **Result**: Returns 3 curated picks with:
+    - **"Why Picked"**: Personalized reasoning.
+    - **"Trade-offs"**: Honest assessment of downsides (e.g., "Pricey").
 
-## 4. Compliance with Hackathon Rules
-- Uses Yelp AI API as **primary and exclusive** data source  
-- No mixing with Google Places or other POI APIs  
-- Code written after hackathon start  
-- Public demo + repo + video included  
+### FR-4: Voting & Leaderboard
+- Participants vote (Like/Dislike).
+- Real-time leaderboard updates.
+- Top card highlighted as "Current Leader".
 
----
-
-## 5. Functional Requirements
-
-### FR-1: Session Creation
-Host creates a session containing location, time, and optional group size.
-
-### FR-2: Join Session
-Participants join via unique link.
-
-### FR-3: Preference Submission
-Users submit:
-- dietary preferences  
-- cuisines liked/disliked  
-- budget  
-- vibe  
-- distance & noise tolerance  
-
-### FR-4: Group Profile Aggregation
-Backend combines all inputs into a group summary.
-
-### FR-5: Yelp AI API Recommendation Engine
-`POST https://api.yelp.com/ai/chat/v2` with:
-- `query`: group request  
-- `chat_id`: session-based  
-
-### FR-6: Displaying Results
-Shows:
-- name  
-- rating  
-- price  
-- categories  
-- Yelp link  
-- AI explanation  
-
-### FR-7: Voting
-Participants vote on venues.
-
-### FR-8: Final Choice
-App highlights top venue + backup.
-
-### FR-9: Multi-turn Refinement
-Optional follow-ups using same `chat_id`.
+### FR-5: AI Reservation Agent (New)
+- **Trigger**: Host clicks "Have AI Book This Table" on the winning card.
+- **Simulation**:
+    - System simulates a 3-second negotiation delay.
+    - **Outcomes**:
+        - ✅ Success: Returns unique Confirmation Code.
+        - ❌ Busy: Returns "No tables available at [Time]" message.
+- **Persistence**: Booking status updates for all users in real-time.
 
 ---
 
-## 6. Non-Functional Requirements
-- Fast response  
-- Clean UI  
-- Mobile-friendly  
-- Secure env vars  
-- Public availability  
+## 4. User Interface (UI) Priorities
+- **Mobile First**: Responsive design for on-the-go planning.
+- **Visibility**: High-contrast text for input fields.
+- **Shareability**: "Copy Link" button in the Lobby.
+- **Transparency**: Display "AI Thinking" states and Reservation status.
 
 ---
 
-## 7. User Flows
-
-### Host
-Create → Share → Collect → Generate AI suggestions → Vote → Finalize
-
-### Participant
-Join → Submit preferences → Vote → View final venue
-
----
-
-## 8. Data Model
+## 5. Data Model (Schema)
 
 ### Session
-- id  
-- host_name  
-- location  
-- date_time  
-- chat_id  
+- `id` (UUID)
+- `host_name`
+- `location`
+- `scheduled_time` (DateTime)
+- `conflict_analysis` (JSON: {has_conflicts, resolution})
+- `booking_status` (Enum: none, pending, booked, busy)
 
-### Participant
-- id  
-- session_id  
-- name  
-- dietary  
-- cuisine_likes/dislikes  
-- budget  
-- vibe  
-
-### Venue
-- id  
-- session_id  
-- name  
-- address  
-- rating  
-- price  
-- categories  
-- yelp_url  
-- explanation  
-
-### Vote
-- id  
-- session_id  
-- participant_id  
-- venue_id  
-- score  
+### Recommendation
+- `business_id` (Yelp ID)
+- `ai_reasoning` (Full summary)
+- `why_picked` (Selling point)
+- `trade_offs` (List of cons)
 
 ---
 
-## 9. Backend API Endpoints
-
-### POST /sessions
-Creates session.
-
-### POST /sessions/{id}/participants
-Adds participant.
-
-### POST /sessions/{id}/recommendations
-Triggers Yelp AI call.
-
-### POST /sessions/{id}/vote
-Saves vote.
-
-### GET /sessions/{id}
-Returns full session.
+## 6. Technical Stack
+- **Frontend**: Next.js 14, Tailwind CSS, SWR.
+- **Backend**: FastAPI (Python 3.9).
+- **Database**: Supabase (PostgreSQL).
+- **Deployment**: Google Cloud Run (Dockerized).
 
 ---
 
-## 10. System Architecture
-
-### Frontend
-- React / Next.js  
-- Hosted on GCP/Firebase/Vercel  
-
-### Backend
-- FastAPI  
-- Cloud Run  
-- Postgres/Firestore  
-
----
-
-## 11. Risks
-- Yelp API quota issues  
-- Latency  
-- Late participants  
-- Mobile UX issues  
-
----
-
-## 12. Deliverables
-- Public repo  
-- Hosted web app  
-- 3-minute demo video  
-- Devpost submission  
-
----
-
-## 13. Acceptance Criteria
-- Must call Yelp AI API  
-- Must aggregate preferences  
-- Must show at least 3 recommendations  
-- Must allow voting  
-- Must include AI explanations  
-- Must be publicly deployed  
+## 7. Success Metrics
+- **Time to Consensus**: < 5 minutes.
+- **Conflict Handling**: Successfully identifies mixed dietary groups.
+- **Booking Simulation**: Realistic success/fail rates (70/30).

@@ -88,7 +88,7 @@ export default function SessionPage() {
                             <input
                                 type="text"
                                 required
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 p-2 border"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 p-2 border text-gray-900 bg-white placeholder-gray-500"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                             />
@@ -97,7 +97,7 @@ export default function SessionPage() {
                             <label className="block text-sm font-medium text-gray-700">Dietary Restrictions</label>
                             <input
                                 type="text"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 p-2 border"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 p-2 border text-gray-900 bg-white placeholder-gray-500"
                                 placeholder="e.g. Vegan, Gluten-Free"
                                 value={dietary}
                                 onChange={(e) => setDietary(e.target.value)}
@@ -107,7 +107,7 @@ export default function SessionPage() {
                             <label className="block text-sm font-medium text-gray-700">Cuisine Preferences</label>
                             <input
                                 type="text"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 p-2 border"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 p-2 border text-gray-900 bg-white placeholder-gray-500"
                                 placeholder="e.g. Italian, Thai"
                                 value={cuisine}
                                 onChange={(e) => setCuisine(e.target.value)}
@@ -297,9 +297,30 @@ export default function SessionPage() {
     return (
         <div className="min-h-screen bg-orange-50 p-4">
             <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="bg-orange-500 p-6 text-white">
-                    <h1 className="text-2xl font-bold">{session.location}</h1>
-                    <p className="opacity-90">Host: {session.host_name}</p>
+                <div className="bg-orange-500 p-6 text-white flex justify-between items-start">
+                    <div>
+                        <h1 className="text-2xl font-bold">{session.location}</h1>
+                        <p className="opacity-90">Host: {session.host_name}</p>
+                        {session.scheduled_time && (
+                            <div className="mt-2 flex items-center text-sm bg-orange-600/50 px-2 py-1 rounded inline-block">
+                                <span className="mr-1">📅</span>
+                                {new Date(session.scheduled_time).toLocaleString([], {
+                                    weekday: 'short', month: 'short', day: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => {
+                            localStorage.removeItem(`session_${sessionId}_participant`);
+                            setParticipantId(null);
+                            window.location.reload();
+                        }}
+                        className="text-xs bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded border border-orange-400"
+                    >
+                        Leave
+                    </button>
                 </div>
 
                 <div className="p-6">
@@ -310,6 +331,22 @@ export default function SessionPage() {
                         <span className="text-sm text-gray-500">
                             {participants.length >= 10 ? 'Full' : 'Open'}
                         </span>
+                    </div>
+
+                    {/* Invite Section */}
+                    <div className="bg-orange-50 p-3 rounded-lg flex items-center justify-between mb-4 border border-orange-100">
+                        <div className="text-sm text-orange-800 font-medium">
+                            Invite friends to join!
+                        </div>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(window.location.href);
+                                alert("Link copied to clipboard! Share it with friends.");
+                            }}
+                            className="text-xs bg-white text-orange-600 px-3 py-1.5 rounded shadow-sm border border-orange-200 font-bold hover:bg-orange-50 active:scale-95 transition-all"
+                        >
+                            Copy Link 🔗
+                        </button>
                     </div>
 
                     <ul className="space-y-2 mb-8">

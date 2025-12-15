@@ -183,7 +183,12 @@ def generate_recommendations(session_id: str, background_tasks: BackgroundTasks)
         conflict_analysis = ai_service.analyze_conflicts(participants)
         
         # Update session with conflict analysis
-        supabase.table("sessions").update({"conflict_analysis": conflict_analysis}).eq("id", session_id).execute()
+        try:
+            supabase.table("sessions").update({"conflict_analysis": conflict_analysis}).eq("id", session_id).execute()
+        except Exception as e:
+            logger.warning(f"Failed to save conflict_analysis (Schema mismatch?): {e}")
+            # Continue execution so recommendations still load
+            pass
         
         # 2. Get Recommendations
         recommendations = ai_service.generate_recommendations_with_retry(session_id, prompt)
@@ -205,7 +210,21 @@ def generate_recommendations(session_id: str, background_tasks: BackgroundTasks)
             
             # keep why_picked and trade_offs as they are now in DB
             
-            supabase.table("recommendations").insert(rec_data).execute()
+            try:
+                supabase.table("recommendations").insert(rec_data).execute()
+            except Exception as e:
+                logger.warning(f"Failed to insert full recommendation (Schema mismatch?): {e}")
+                # Fallback: Remove new AI columns and retry
+                # This handles the PGRST204 error where Supabase hasn't seen the new columns yet
+                fallback_data = rec_data.copy()
+                if "why_picked" in fallback_data: del fallback_data["why_picked"]
+                if "trade_offs" in fallback_data: del fallback_data["trade_offs"]
+                
+                try:
+                    supabase.table("recommendations").insert(fallback_data).execute()
+                    logger.info("Successfully inserted recommendation using fallback (no AI fields)")
+                except Exception as e2:
+                    logger.error(f"Critical: Failed to insert recommendation fallback: {e2}")
             
         return {"status": "completed", "message": "Recommendations generated"}
     except Exception as e:

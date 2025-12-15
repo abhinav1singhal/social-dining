@@ -86,6 +86,8 @@ class YelpAIMapper:
             content = data["answer"]
         elif "reply" in data:
             content = data["reply"]
+        elif "response" in data:
+            content = data["response"]
         
         # Fallback: Check if it returned a business list but put the text in a summary? Unlikely for this query.
         
@@ -93,6 +95,19 @@ class YelpAIMapper:
             # If no content found, print keys for debugging
             print(f"⚠️ Could not find content in conflict response. Keys: {list(data.keys())}")
             return {"has_conflicts": False, "conflicts": [], "resolution": "Could not parse analysis."}
+
+        # If content is already a dict (AI returned JSON object directly), usage it
+        if isinstance(content, dict):
+            return {
+                "has_conflicts": content.get("has_conflicts", False),
+                "conflicts": content.get("conflicts", []),
+                "resolution": content.get("resolution", "")
+            }
+
+        # Validate content is string before regex
+        if not isinstance(content, str):
+            print(f"⚠️ Unexpected content type: {type(content)}")
+            return {"has_conflicts": False, "conflicts": [], "resolution": "Analysis type error."}
 
         # Clean markdown code blocks if present
         content = re.sub(r'```json\s*', '', content)
